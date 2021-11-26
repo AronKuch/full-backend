@@ -4,59 +4,72 @@ import { MongoClient } from "mongodb";
 
 const app = express();
 
-// returns {client, db, articleInfo}
-// client so that you can later client.close()
-// db to make updates/inserts, etc.
-// articleInfo is a JSON of the article
-// This might go away because I don't know how much it helps.
-const getArticle = async (articleName) => {
-  const client = await MongoClient.connect("mongodb://127.0.0.1:27017");
-  const db = client.db("back-blog");
-  const articleInfo = await db
-    .collection("articles")
-    .findOne({ name: articleName });
-  return { client, db, articleInfo };
+const useDB = async (operations, res) => {
+  try {
+    const client = await MongoClient.connect("mongodb://127.0.0.1:27017");
+    const db = client.db("back-blog");
+    await operations(db);
+    client.close;
+  } catch (error) {
+    res.status(500).json({ message: "Error. Good luck! Message: ", error });
+  }
 };
 
 app.use(bodyParser.json());
 
 app.get("/api/articles/:name", async (req, res) => {
-  try {
+  useDB(async (db) => {
     let articleName = req.params.name;
-    let { client, db, articleInfo } = await getArticle(articleName);
+    const articleInfo = await db
+      .collection("articles")
+      .findOne({ name: articleName });
     res.status(200).json(articleInfo);
-    client.close();
-  } catch (error) {
-    res.status(500).json({ message: "Error connecting to db ", error });
-  }
+  }, res);
 });
 
 app.post("/api/articles/:name/upvote", async (req, res) => {
-  let articleName = req.params.name;
-  let { client, db, articleInfo } = await getArticle(articleName);
-  await db
-    .collection("articles")
-    .updateOne(
-      { _id: articleInfo._id },
-      { $set: { upvotes: ++articleInfo.upvotes } }
-    );
-  const updatedArticleInfo = await db
-    .collection("articles")
-    .findOne({ name: articleName });
-  res
-    .status(200)
-    .send(
-      `${updatedArticleInfo.name} now has ${updatedArticleInfo.upvotes} upvotes!`
-    );
-  ("");
+  useDB(async (db) => {
+    let articleName = req.params.name;
+    const articleInfo = await db
+      .collection("articles")
+      .findOne({ name: articleName });
+    await db
+      .collection("articles")
+      .updateOne(
+        { _id: articleInfo._id },
+        { $set: { upvotes: ++articleInfo.upvotes } }
+      );
+    const updatedArticleInfo = await db
+      .collection("articles")
+      .findOne({ name: articleName });
+    res
+      .status(200)
+      .send(
+        `${updatedArticleInfo.name} now has ${updatedArticleInfo.upvotes} upvotes!`
+      );
+  }, res);
 });
 
-app.post("/api/articles/:name/comments", (req, res) => {
-  let articleName = req.params.name;
-  let comment = req.body.comment;
+app.post("/api/articles/:name/comment", (req, res) => {
+  useDB(async (db) => {
+    let articleName = req.params.name;
+    let { username, comment } = req.body;
+    const articleInfo = await db
+      .collection("articles")
+      .findOne({ name: articleName });
+    articleInfo.comments.push({ username, comment });
+    await db
+      .collection("articles")
+      .updateOne(
+        { _id: articleInfo._id },
+        { $set: { comments: articleInfo.comments } }
+      );
+    const updatedArticleInfo = await db
+      .collection("articles")
+      .findOne({ name: articleName });
 
-  articlesInfo[articleName].comments.push(comment);
-  res.status(200).send(`Your comment on ${articleName} has been logged.`);
+    res.status(200).json(updatedArticleInfo);
+  }, res);
 });
 
 app.listen(7001, () => console.log("Listening on port 7001"));
