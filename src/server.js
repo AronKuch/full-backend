@@ -4,18 +4,24 @@ import { MongoClient } from "mongodb";
 
 const app = express();
 
+app.use(bodyParser.json());
+
+app.use(function(req, res, next){
+res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+next();
+});
+
+
 const useDB = async (operations, res) => {
   try {
     const client = await MongoClient.connect("mongodb://127.0.0.1:27017");
-    const db = client.db("back-blog");
+    const db = client.db("cancer-blog");
     await operations(db);
     client.close;
   } catch (error) {
     res.status(500).json({ message: "Error. Good luck! Message: ", error });
   }
 };
-
-app.use(bodyParser.json());
 
 app.get("/api/articles/:name", async (req, res) => {
   useDB(async (db) => {
