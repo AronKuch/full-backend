@@ -1,0 +1,8 @@
+{
+  "short_name": "Aron's Learning Blog",
+  "name": "Aron's Learning Blog: From LinkedIn's React Learning Path ",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
